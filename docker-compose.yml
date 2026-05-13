@@ -1,16 +1,39 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command:
+      [
+        'sh',
+        '-c',
+        'node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js && node dist/database/seeds/seed.js && node dist/main',
+      ]
+
   postgres:
     image: postgres:16-alpine
     ports:
       - '5432:5432'
     environment:
-      POSTGRES_USER: soilflo
-      POSTGRES_PASSWORD: soilflo
-      POSTGRES_DB: soilflo
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U soilflo']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER}']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -19,7 +42,6 @@ services:
     image: redis:7-alpine
     ports:
       - '6379:6379'
-    # Redis is used by BullMQ in the production queue path (QUEUE_ENABLED=true)
 
 volumes:
   postgres_data:

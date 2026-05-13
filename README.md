@@ -1,69 +1,324 @@
-# interview-takehome
+# SoilFLO API
 
-SoilFLO Interview takehome
+A RESTful dispatch-ticket API for construction-site material tracking, built with **NestJS**, **TypeScript**, **PostgreSQL**, and **TypeORM**. Optionally supports async bulk-create via **BullMQ + Redis**.
 
-## Requirements
+> **Submission notes:** See [solution.md](solution.md) for answers to the take-home discussion questions, assumptions made, and LLM usage disclosure.
 
-- Write an API
-- API should be written in typescript
-- API should use ExpressJS or NestJS
-- API should follow RESTful structure
-- API should have a connection to an SQL database. (Postgres, SQLite, MySQL)
+---
 
-### Schema
+## Table of Contents
+
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [Database Setup](#database-setup)
+- [Running the App](#running-the-app)
+- [API Reference](#api-reference)
+- [Queue Mode (BullMQ)](#queue-mode-bullmq)
+- [Testing](#testing)
+- [Project Structure](#project-structure)
+
+---
+
+## Tech Stack
+
+| Layer      | Technology                          |
+| ---------- | ----------------------------------- |
+| Runtime    | Node.js 20, TypeScript 5            |
+| Framework  | NestJS 10                           |
+| Database   | PostgreSQL 16 via TypeORM           |
+| Queue      | BullMQ + Redis 7 (optional)         |
+| Validation | class-validator / class-transformer |
+| Docs       | Swagger / OpenAPI (`/api`)          |
+| Testing    | Jest 29 + ts-jest, Supertest        |
+
+---
+
+## Prerequisites
+
+- **Node.js** ≥ 20 (only needed if running outside Docker)
+- **Docker + Docker Compose**
+
+---
+
+## Quick Start
+
+### Option A — fully containerised (recommended)
+
+```bash
+# 1. Clone the repo
+git clone <repo-url>
+cd interview-takehome-be
+
+# 2. Copy the example env file and adjust if needed
+cp .env.example .env
+
+# 3. Build and start everything (API + Postgres + Redis)
+#    Migrations and seeding run automatically on first start
+docker compose up --build
+```
+
+### Option B — local Node, Docker for infrastructure
+
+```bash
+# 1. Clone and install dependencies
+git clone <repo-url>
+cd interview-takehome-be
+npm install
+
+# 2. Start Postgres and Redis
+docker compose up -d postgres redis
+
+# 3. Copy the example env file and adjust if needed
+cp .env.example .env
+
+# 4. Run migrations, then seed sites & trucks
+npm run migration:run
+npm run seed
+
+# 5. Start the dev server
+npm run start:dev
+```
+
+The API is available at `http://localhost:3000`.  
+Interactive Swagger docs: `http://localhost:3000/api`.
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env`. All variables and their defaults:
+
+```dotenv
+NODE_ENV=development
+PORT=3000
+
+# PostgreSQL
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=soilflo
+POSTGRES_PASSWORD=soilflo
+POSTGRES_DB=soilflo
+
+# Redis — only required when QUEUE_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=1
+
+# Feature flags
+QUEUE_ENABLED=false   # set to true to route POST /tickets through BullMQ
+```
+
+---
+
+## Database Setup
+
+### Migrations
+
+```bash
+# Apply all pending migrations
+npm run migration:run
+
+# Generate a new migration after entity changes
+npm run migration:generate -- src/database/migrations/<MigrationName>
+
+# Revert the last migration
+npm run migration:revert
+```
+
+### Seeding
+
+Loads `SitesJSONData.json` (~100 k sites) and `TrucksJSONData.json` (~1 k trucks) into the database. This is idempotent — safe to re-run.
+
+```bash
+npm run seed
+```
+
+---
+
+## Running the App
+
+```bash
+# Development (watch mode)
+npm run start:dev
+
+# Production build
+npm run build
+npm run start:prod
+
+# Debug mode
+npm run start:debug
+```
+
+---
+
+## API Reference
+
+Base URL: `http://localhost:3000`  
+Full interactive docs with request/response schemas: `GET /api`
+
+### Tickets
+
+| Method | Path                   | Description                                                                          |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
+| `POST` | `/tickets`             | Bulk-create tickets for a truck. Returns `201` (sync) or `202 + jobId` (queue mode). |
+| `GET`  | `/tickets`             | List all tickets. Filterable by `siteId`, `startDate`, `endDate`. Paginated.         |
+| `GET`  | `/tickets/jobs/:jobId` | Poll async job status (only meaningful when `QUEUE_ENABLED=true`).                   |
+
+#### POST /tickets — request body
+
+```json
+{
+  "tickets": [
+    {
+      "truckId": 1,
+      "dispatchedAt": "2024-06-15T10:30:00.000Z",
+      "material": "Soil"
+    }
+  ]
+}
+```
+
+Business rules enforced:
+
+- `dispatchedAt` cannot be a future date
+- No two tickets for the same truck may share the same `dispatchedAt` timestamp
+- Ticket numbers are auto-incremented **per site** (advisory-lock protected)
+
+#### GET /tickets — query parameters
+
+| Param       | Type         | Description                              |
+| ----------- | ------------ | ---------------------------------------- |
+| `siteId`    | `number`     | Filter to a specific site                |
+| `startDate` | `YYYY-MM-DD` | Inclusive lower bound on `dispatchedAt`  |
+| `endDate`   | `YYYY-MM-DD` | Inclusive upper bound on `dispatchedAt`  |
+| `page`      | `number`     | Page number (default `1`)                |
+| `limit`     | `number`     | Items per page (default `50`, max `200`) |
+
+#### Ticket response shape
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "ticketNumber": 42,
+      "material": "Soil",
+      "status": "Active",
+      "dispatchedAt": "2024-06-15T10:30:00.000Z",
+      "siteName": "Site Alpha",
+      "truckLicense": "KDD 123"
+    }
+  ],
+  "meta": { "page": 1, "limit": 50, "total": 1 }
+}
+```
+
+### Sites
+
+| Method | Path         | Description                                             |
+| ------ | ------------ | ------------------------------------------------------- |
+| `GET`  | `/sites`     | List all sites (paginated, searchable by name/address). |
+| `GET`  | `/sites/:id` | Get a single site by ID.                                |
+
+### Trucks
+
+| Method | Path          | Description                                                                   |
+| ------ | ------------- | ----------------------------------------------------------------------------- |
+| `GET`  | `/trucks`     | List all trucks (paginated, filterable by `siteId`, searchable by `license`). |
+| `GET`  | `/trucks/:id` | Get a single truck by ID.                                                     |
+
+---
+
+## Queue Mode (BullMQ)
+
+When `QUEUE_ENABLED=true`, `POST /tickets` enqueues the job instead of processing it synchronously:
+
+1. Response is `202 Accepted` with `{ "jobId": "..." }`.
+2. Poll `GET /tickets/jobs/:jobId` to check status (`waiting`, `active`, `completed`, `failed`).
+3. On completion the response includes the created tickets; on failure it includes `failedReason`.
+
+Redis must be reachable (configure via `REDIS_HOST` / `REDIS_PORT` / `REDIS_DB`). Docker Compose starts Redis automatically.
+
+Job failures are written to `logs/error.log` in NestJS log format.
+
+---
+
+## Testing
+
+```bash
+# Unit tests
+npm run test
+
+# Unit tests in watch mode
+npm run test:watch
+
+# Unit tests with coverage report (threshold: 85% stmts/branches/lines/funcs)
+npm run test:cov
+
+# End-to-end tests (requires a running Postgres — uses .env.test)
+npm run test:e2e
+
+# E2E with coverage
+npm run test:e2e:cov
+```
+
+---
+
+## Project Structure
 
 ```
-sites: {
-  id: number,
-  name: string,
-  address: string,
-  description: string
-}
-trucks: {
-  id: number,
-  license: string,
-  siteId: number
-}
+src/
+├── app.module.ts               # Root module (conditionally wires BullMQ)
+├── main.ts                     # Bootstrap; loads .env before any module code
+├── preload-env.ts              # dotenv loader (imported first in main.ts)
+│
+├── database/
+│   ├── migrations/             # TypeORM migration files
+│   └── seeds/                  # Data seeders for sites & trucks
+│
+├── modules/
+│   ├── sites/
+│   │   ├── application/        # Service, query DTO
+│   │   ├── domain/             # Entity, repository interface
+│   │   ├── infrastructure/     # TypeORM repository
+│   │   └── presentation/       # Controller, response DTO
+│   ├── tickets/
+│   │   ├── application/        # Service, processor, queue service, DTOs
+│   │   ├── domain/             # Entity, enums, repository interface
+│   │   ├── infrastructure/     # TypeORM repository
+│   │   └── presentation/       # Controller, response DTOs
+│   └── trucks/
+│       ├── application/        # Service, query DTO
+│       ├── domain/             # Entity, repository interface
+│       ├── infrastructure/     # TypeORM repository
+│       └── presentation/       # Controller, response DTO
+│
+└── shared/
+    ├── filters/                # HttpExceptionFilter (logs 5xx to file)
+    ├── interceptors/           # TransformInterceptor, LoggingInterceptor
+    ├── pagination/             # PaginationQueryDto, PaginatedResultDto
+    ├── utils/                  # error-log.ts (shared file-log utility)
+    └── validators/             # IsNotFutureDate custom validator
 ```
 
-## Goal:
+---
 
-Context
+## Adding a New Module
 
-- There are ~100,000 construction sites in the SitesJSONData file
-- A Site is a place/location that sends or receives materials e.g. Soil
-- For Construction, Soil is often removed to build the foundations, and in some cases soil is needed to level a building
-- A construction site can have many dump trucks running in a single day. Removing soil/materials from the site and being transferred to another site
-- There are ~1000 trucks in the TrucksJSONData file
+Use the NestJS CLI to scaffold a new module. For example, to add a `drivers` module:
 
-### Requirements:
+```bash
+nest g mo modules/drivers
+nest g co modules/drivers/presentation/drivers --flat
+nest g s modules/drivers/application/drivers --flat
+```
 
-- The API should connect to a SQL database that contains the sites & trucks provided in the JSON.
-- On top of the existing trucks and sites, we need to be able to create a ticket for a truck that describes a load of material being dispatched off site.
-- A truck can have many tickets and a ticket can only be dispatched from one truck
-- A ticket has a time it was dispatched
-- A ticket has a number that is incremented per site
-- A ticket has a material that is `Soil`
+The CLI auto-registers each generated class in its module. You will still need to create the layered subfolders (`domain/`, `infrastructure/`) and add the entity, repository interface, and TypeORM repository by hand to match the existing structure.
 
-- Create an API endpoint that creates tickets in bulk for a truck
-  - Two tickets cannot have the same dispatched time for the same truck
-  - Tickets cannot be dispatched at a future date
-- Create a fetch endpoint for all tickets that can be filtered by:
-  - sites
-  - date range
-- Response data should include the following:
-  - Name of the site
-  - License plate of the truck
-  - Ticket number
-  - Ticket dispatched time
-  - Name of material
+To see all available generators:
 
-### Notes
-
--  We will score it on:
-   - Complete to spec
-   - Code was readable and used TypeScript well
-   - Was easy to setup and run by the reviewers
-   - Quality work
-   - Observation work
-
+```bash
+nest generate --help
+```
