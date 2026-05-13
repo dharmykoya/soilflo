@@ -46,8 +46,7 @@ export class TicketsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<TicketResponseDto[] | CreateJobResponseDto> {
     if (this.ticketsQueueService.isEnabled()) {
-      console.log('QUEUE_ENABLED=true — enqueuing bulk-create job');
-      res.status(HttpStatus.OK);
+      res.status(HttpStatus.ACCEPTED);
       return this.ticketsQueueService.enqueue(dto);
     }
 
