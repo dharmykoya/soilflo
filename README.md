@@ -44,22 +44,7 @@ A RESTful dispatch-ticket API for construction-site material tracking, built wit
 
 ## Quick Start
 
-### Option A — fully containerised (recommended)
-
-```bash
-# 1. Clone the repo
-git clone <repo-url>
-cd interview-takehome-be
-
-# 2. Copy the example env file and adjust if needed
-cp .env.example .env
-
-# 3. Build and start everything (API + Postgres + Redis)
-#    Migrations and seeding run automatically on first start
-docker compose up --build
-```
-
-### Option B — local Node, Docker for infrastructure
+### Option A — local Node, Docker for infrastructure
 
 ```bash
 # 1. Clone and install dependencies
@@ -79,6 +64,21 @@ npm run seed
 
 # 5. Start the dev server
 npm run start:dev
+```
+
+### Option B — fully containerised
+
+```bash
+# 1. Clone the repo
+git clone <repo-url>
+cd interview-takehome-be
+
+# 2. Copy the example env file and adjust if needed
+cp .env.example .env
+
+# 3. Build and start everything (API + Postgres + Redis)
+#    Migrations and seeding run automatically on first start
+docker compose up --build
 ```
 
 The API is available at `http://localhost:3000`.  
