@@ -64,7 +64,7 @@ The queue path (`QUEUE_ENABLED=true`) uses **BullMQ** so that bulk ticket creati
 
 ## 4. LLM Usage Disclosure
 
-I used **GitHub Copilot** as a pair-programming assistant throughout this challenge, in the following ways:
+I used **GitHub Copilot (Claude Sonnet 4.6)** as a pair-programming assistant throughout this challenge, in the following ways:
 
 - **Architecture planning:** Discussed layered structure, and technology trade-offs before writing code.
 - **Code generation:** Copilot helped scaffold boilerplate (module registration, entity stubs, test structure) which I then reviewed and refined.
