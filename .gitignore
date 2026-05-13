@@ -43,7 +43,8 @@ Thumbs.db
 
 # Docker volumes
 postgres_data/
-src/shared
 
 # Internal planning docs
 IMPLEMENTATION_PLAN.md
+
+txt
