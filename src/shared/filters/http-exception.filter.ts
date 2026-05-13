@@ -4,8 +4,11 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { appendFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 interface ErrorResponse {
   statusCode: number;
@@ -15,8 +18,13 @@ interface ErrorResponse {
   path: string;
 }
 
+const LOG_DIR = join(process.cwd(), 'logs');
+const ERROR_LOG = join(LOG_DIR, 'error.log');
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger('Exception');
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -51,6 +59,24 @@ export class HttpExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
     };
+
+    // Write 5xx errors and unexpected exceptions to logs/error.log
+    if (status >= 500 || !(exception instanceof HttpException)) {
+      const stack = exception instanceof Error ? exception.stack : String(exception);
+      const logLine =
+        `[${errorBody.timestamp}] ${request.method} ${request.url} ${status}\n` +
+        `${stack}\n` +
+        `---\n`;
+
+      try {
+        mkdirSync(LOG_DIR, { recursive: true });
+        appendFileSync(ERROR_LOG, logLine, 'utf8');
+      } catch {
+        this.logger.error('Failed to write to error log file');
+      }
+
+      this.logger.error(`${request.method} ${request.url} ${status}`, stack);
+    }
 
     response.status(status).json(errorBody);
   }

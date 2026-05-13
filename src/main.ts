@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
+import { ValidationError } from 'class-validator';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { TransformInterceptor } from './shared/interceptors/transform.interceptor';
+import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -15,6 +17,8 @@ async function bootstrap(): Promise<void> {
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: (errors: ValidationError[]) =>
+        new UnprocessableEntityException(errors),
     }),
   );
 
@@ -22,7 +26,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // Global response transform — wraps successful responses in { data, meta? }
-  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
 
   // OpenAPI / Swagger
   const config = new DocumentBuilder()
