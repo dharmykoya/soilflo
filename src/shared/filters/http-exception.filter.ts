@@ -7,8 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { appendFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { appendErrorLog } from '../utils/error-log';
 
 interface ErrorResponse {
   statusCode: number;
@@ -18,8 +17,6 @@ interface ErrorResponse {
   path: string;
 }
 
-const LOG_DIR = join(process.cwd(), 'logs');
-const ERROR_LOG = join(LOG_DIR, 'error.log');
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -69,8 +66,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         `---\n`;
 
       try {
-        mkdirSync(LOG_DIR, { recursive: true });
-        appendFileSync(ERROR_LOG, logLine, 'utf8');
+        appendErrorLog(logLine);
       } catch {
         this.logger.error('Failed to write to error log file');
       }
