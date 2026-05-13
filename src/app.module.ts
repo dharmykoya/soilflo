@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppController } from './app.controller';
+import { SitesModule } from './modules/sites/sites.module';
 
 @Module({
   imports: [
@@ -29,7 +31,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         logging: config.get<string>('NODE_ENV') === 'development',
       }),
     }),
+
+    SitesModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}
 
