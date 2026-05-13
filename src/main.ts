@@ -1,3 +1,4 @@
+import './preload-env'; // MUST be first — loads .env before any module code is evaluated
 import { NestFactory } from '@nestjs/core';
 import { UnprocessableEntityException, ValidationPipe } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
