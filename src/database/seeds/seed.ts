@@ -1,5 +1,6 @@
 import { AppDataSource } from '../data-source';
 import { seedSites } from './sites.seeder';
+import { seedTrucks } from './trucks.seeder';
 
 async function run(): Promise<void> {
   console.log('Initialising database connection…');
@@ -10,6 +11,9 @@ async function run(): Promise<void> {
 
   console.log('Seeding sites…');
   await seedSites(AppDataSource);
+
+  console.log('Seeding trucks…');
+  await seedTrucks(AppDataSource);
 
   await AppDataSource.destroy();
   console.log('Done.');
