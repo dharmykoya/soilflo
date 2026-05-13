@@ -21,11 +21,13 @@ export class TypeOrmTicketRepository implements TicketRepository {
         'ticket.material',
         'ticket.status',
         'ticket.dispatchedAt',
+        'site.id',
         'site.name',
+        'truck.id',
         'truck.license',
       ])
-      .innerJoin('ticket.site', 'site')
-      .innerJoin('ticket.truck', 'truck')
+      .innerJoinAndSelect('ticket.site', 'site')
+      .innerJoinAndSelect('ticket.truck', 'truck')
       .orderBy('ticket.dispatchedAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);

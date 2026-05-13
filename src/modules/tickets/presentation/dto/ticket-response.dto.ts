@@ -27,8 +27,10 @@ export class TicketResponseDto {
 
   static fromEntity(ticket: Ticket): TicketResponseDto {
     const dto = new TicketResponseDto();
+    dto.id = ticket.id;
     dto.ticketNumber = ticket.ticketNumber;
     dto.material = ticket.material;
+    dto.status = ticket.status;
     dto.dispatchedAt = ticket.dispatchedAt;
     dto.siteName = ticket.site?.name ?? '';
     dto.truckLicense = ticket.truck?.license ?? '';

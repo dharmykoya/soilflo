@@ -19,7 +19,7 @@ import { TicketResponseDto } from './dto/ticket-response.dto';
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
 
-  @Post('bulk')
+  @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Bulk-create tickets for a truck (atomic, advisory-locked per site)' })
   @ApiCreatedResponse({ type: [TicketResponseDto] })
