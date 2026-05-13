@@ -49,7 +49,7 @@ A RESTful dispatch-ticket API for construction-site material tracking, built wit
 ```bash
 # 1. Clone and install dependencies
 git clone <repo-url>
-cd interview-takehome-be
+cd soilflo
 npm install
 
 # 2. Start Postgres and Redis
@@ -71,7 +71,7 @@ npm run start:dev
 ```bash
 # 1. Clone the repo
 git clone <repo-url>
-cd interview-takehome-be
+cd soilflo
 
 # 2. Copy the example env file and adjust if needed
 cp .env.example .env
